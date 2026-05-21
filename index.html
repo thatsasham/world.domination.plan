@@ -211,8 +211,11 @@ select option{background:var(--surface2)}
 /* FEEDBACK BUTTON */
 #feedbackBtn{position:fixed;bottom:24px;right:24px;width:48px;height:48px;border-radius:50%;background:var(--surface);border:2px solid var(--border);cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;z-index:900;box-shadow:0 4px 20px rgba(0,0,0,.6);transition:all .2s;color:var(--text);line-height:1}
 #feedbackBtn:hover{background:var(--accent);transform:scale(1.1);border-color:var(--accent);color:#e8f5e0}
+#customBtn{position:fixed;bottom:24px;right:80px;width:48px;height:48px;border-radius:50%;background:var(--surface);border:2px solid var(--border);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;z-index:900;box-shadow:0 4px 20px rgba(0,0,0,.6);transition:all .2s;color:var(--text);line-height:1}
+#customBtn:hover{background:var(--accent);transform:scale(1.1);border-color:var(--accent);color:#e8f5e0}
 @media print{
   #feedbackBtn{display:none!important}
+  #customBtn{display:none!important}
   #sidebar,#topbar,.topbar-actions,#hamburger,.tx-actions,.btn,button{display:none!important}
   #main{margin:0}
   #content{padding:0}
@@ -825,6 +828,9 @@ function loadState(){
   state.primaryCardId=L('ff_primary_card','');
   state.creditView={cardId:'', year:new Date().getFullYear(), month:new Date().getMonth()+1, tab:'faturas'};
   state.appLog=L('ff_log',[]);
+  state.bgOpacity=L('wdp_bg_opacity',0.07);
+  state.bgPosition=L('wdp_bg_position','center 30%');
+  state.bgImage=L('wdp_bg_image',null);
   state.feedbackLog=L('ff_feedback_log',[]);
   state.mei=L('ff_mei',{
     cnpj:'', razaoSocial:'', dataAbertura:'',
@@ -848,6 +854,9 @@ function saveState(){
   S('ff_gk',state.geminiKey);S('ff_ai_enabled',state.aiEnabled);S('ff_sheeturl',state.sheetUrl);
   S('ff_sheetpwd',state.sheetPwd);S('ff_projmonth',state.projMonth);S('ff_primary_card',state.primaryCardId||'');
   S('ff_log',state.appLog.slice(0,200));
+  S('wdp_bg_opacity',state.bgOpacity);
+  S('wdp_bg_position',state.bgPosition);
+  if(state.bgImage!==undefined)S('wdp_bg_image',state.bgImage);
   S('ff_feedback_log',state.feedbackLog||[]);
   S('ff_mei',state.mei);
 }
@@ -1811,7 +1820,7 @@ function exportAnonymous(){
   const csv=rows.map(r=>r.join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download=`financeflow-anonimo-${todayStr()}.csv`;a.click();
+  a.download=`wdp-anonimo-${todayStr()}.csv`;a.click();
   addLog('export','Exportado relatório anônimo');
 }
 
@@ -2009,7 +2018,7 @@ function generatePDF(){
 
   <div class="footer">
     <span>World Domination Plan — Gerado em ${new Date().toLocaleString('pt-BR')}</span>
-    <span>financeflow-vert.vercel.app</span>
+    <span>worlddomination plan.vercel.app</span>
   </div>
   <script>window.onload=()=>window.print()<\/script>
   </body></html>`;
@@ -2022,7 +2031,7 @@ function generatePDF(){
   if(!w){
     // fallback: download as file
     const a=document.createElement('a');
-    a.href=url;a.download=`financeflow-${pLabel.toLowerCase().replace(/ /g,'-')}-${todayStr()}.html`;
+    a.href=url;a.download=`wdp-relatorio-${pLabel.toLowerCase().replace(/ /g,'-')}-${todayStr()}.html`;
     a.click();
   }
   setTimeout(()=>URL.revokeObjectURL(url),10000);
@@ -2030,7 +2039,7 @@ function generatePDF(){
 
 function exportJSON(){
   const data={transactions:state.transactions,goals:state.goals,categories:state.categories,investments:state.investments,cards:state.cards};
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`financeflow-${todayStr()}.json`;a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=`wdp-backup-${todayStr()}.json`;a.click();
 }
 function importJSON(e){
   const f=e.target.files[0];if(!f)return;
@@ -3053,6 +3062,22 @@ function renderSettings(){
     </div>
   </div>
 
+  <div style="font-size:10px;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;font-weight:600;margin-bottom:10px">O que há de novo</div>
+  <div class="card" style="margin-bottom:24px">
+    ${CHANGELOG.slice(0,6).map(function(c){
+      var badge=c.type==='novo'?'background:#166534;color:#bbf7d0':c.type==='fix'?'background:#7f1d1d;color:#fecaca':'background:#1e3a5f;color:#bfdbfe';
+      return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2)">'
+        +'<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;'+badge+';font-family:var(--mono)">'
+        +(c.type==='novo'?'✨ NOVO':c.type==='fix'?'🐛 FIX':'⚡ OK')
+        +'</span>'
+        +'<div style="flex:1">'
+        +'<div style="font-size:12px;color:var(--text)">'+(c.text||'')+'</div>'
+        +'<div style="font-size:10px;color:var(--muted);margin-top:2px">v'+(c.version||'')+'</div>'
+        +'</div>'
+        +'</div>';
+    }).join('')}
+  </div>
+
   <div style="font-size:10px;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;font-weight:600;margin-bottom:10px">Segurança</div>
   <div class="card" style="margin-bottom:24px">
     <div style="font-size:14px;font-weight:700;margin-bottom:4px">🔑 Código de Recuperação</div>
@@ -3287,7 +3312,18 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){
 // ══════════════════════════════════════════════════
 // FEEDBACK SYSTEM v1.6.6
 // ══════════════════════════════════════════════════
-const APP_VERSION='1r-6';
+const APP_VERSION='1r-7';
+const CHANGELOG=[
+  {version:'1r-7',type:'novo',text:'Personalização de fundo — troque a imagem e ajuste opacidade pelo botão 🎨'},
+  {version:'1r-6',type:'fix',text:'MEI não aparecia — campos chegavam como string JSON, agora desserializados corretamente'},
+  {version:'1r-6',type:'fix',text:'Login não restaurava cartões nem MEI ao entrar em outro dispositivo'},
+  {version:'1r-5',type:'fix',text:'Cartão não voltava do Sheets no restore'},
+  {version:'1r-5',type:'fix',text:'Investimento contava no saldo mesmo marcando "não" — default corrigido'},
+  {version:'1r-5',type:'fix',text:'Fatura importada contando no mês errado — parser corrige virada DEZ→JAN'},
+  {version:'1r-5',type:'melhoria',text:'Projeções mostram prazo da meta com diferença em dias (✅ sobra / ⚠️ atraso)'},
+  {version:'1r-4',type:'novo',text:'Importar PDF Nubank — 100% local via pdf.js, sem precisar de API key'},
+  {version:'1r-4',type:'melhoria',text:'Exportar bugs agora faz download de .txt'},
+];
 const APP_BUILD='';
 let currentFeedbackType='bug';
 let _bugTargetEl=null;
@@ -3443,7 +3479,7 @@ async function exportBugs(){
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
-    a.download='financeflow-viol-bugs-'+new Date().toISOString().slice(0,10)+'.txt';
+    a.download='WDP_feedbacks_'+new Date().toISOString().slice(0,10)+'.txt';
     a.click();
     URL.revokeObjectURL(url);
     (state.feedbackLog||[]).forEach(function(f){if(f.status==='novo')f.status='enviado';});
@@ -3789,6 +3825,81 @@ function confirmImportFatura(){
   }
 }
 
+
+function applyBg(){
+  var el=document.getElementById('lynch-bg');
+  if(!el)return;
+  if(state.bgImage){
+    el.style.backgroundImage='url('+state.bgImage+')';
+    el.style.backgroundPosition=state.bgPosition||'center 30%';
+    el.style.opacity=state.bgOpacity!==undefined?state.bgOpacity:0.07;
+  } else {
+    el.style.backgroundPosition=state.bgPosition||'center 30%';
+    el.style.opacity=state.bgOpacity!==undefined?state.bgOpacity:0.07;
+  }
+}
+
+function openCustomModal(){
+  document.getElementById('customModal').style.display='flex';
+  document.getElementById('bgOpacitySlider').value=Math.round((state.bgOpacity||0.07)*100);
+  document.getElementById('bgOpacityVal').textContent=Math.round((state.bgOpacity||0.07)*100)+'%';
+  var pos=state.bgPosition||'center 30%';
+  var sel=document.getElementById('bgPositionSel');
+  if(pos.includes('top'))sel.value='top';
+  else if(pos.includes('bottom'))sel.value='bottom';
+  else sel.value='center';
+}
+
+function closeCustomModal(){
+  document.getElementById('customModal').style.display='none';
+}
+
+function handleBgUpload(input){
+  var file=input.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var canvas=document.createElement('canvas');
+      var max=800;
+      var w=img.width,h=img.height;
+      if(w>max){h=Math.round(h*max/w);w=max;}
+      if(h>max){w=Math.round(w*max/h);h=max;}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      var compressed=canvas.toDataURL('image/jpeg',0.6);
+      state.bgImage=compressed;
+      applyBg();
+      saveState();
+      showToast('✅ Imagem de fundo aplicada!');
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeBgImage(){
+  state.bgImage=null;
+  var el=document.getElementById('lynch-bg');
+  if(el){el.style.backgroundImage='';el.style.opacity=0.07;el.style.backgroundPosition='center 30%';}
+  state.bgOpacity=0.07;state.bgPosition='center 30%';
+  saveState();
+  showToast('🗑️ Imagem removida. Fundo padrão restaurado.');
+  closeCustomModal();
+}
+
+function saveBgSettings(){
+  var opacity=parseInt(document.getElementById('bgOpacitySlider').value)/100;
+  var posVal=document.getElementById('bgPositionSel').value;
+  var posMap={top:'center top',center:'center 30%',bottom:'center bottom'};
+  state.bgOpacity=opacity;
+  state.bgPosition=posMap[posVal]||'center 30%';
+  applyBg();
+  saveState();
+  showToast('✅ Configurações de fundo salvas!');
+  closeCustomModal();
+}
 function showToast(msg,type='success'){
   const ex=document.getElementById('ff-toast');if(ex)ex.remove();
   const t=document.createElement('div');t.id='ff-toast';
@@ -4005,6 +4116,19 @@ async function exportBugs(){
   btn.disabled=false;btn.textContent='📤 Exportar Bugs Novos';
 }
 
+
+function applyBg(){
+  var el=document.getElementById('lynch-bg');
+  if(!el)return;
+  if(state.bgImage){
+    el.style.backgroundImage='url('+state.bgImage+')';
+    el.style.backgroundPosition=state.bgPosition||'center 30%';
+    el.style.opacity=state.bgOpacity!==undefined?state.bgOpacity:0.07;
+  } else {
+    el.style.backgroundPosition=state.bgPosition||'center 30%';
+    el.style.opacity=state.bgOpacity!==undefined?state.bgOpacity:0.07;
+  }
+}
 function showToast(msg,type='success'){
   const ex=document.getElementById('ff-toast');if(ex)ex.remove();
   const t=document.createElement('div');t.id='ff-toast';
@@ -4190,7 +4314,7 @@ async function restoreFromSheets(silent=false){
 }
 
 function bootApp(){
-  applyTheme();navigate('dashboard');
+  applyTheme();applyBg();navigate('dashboard');
   if(state.sheetUrl)setTimeout(()=>syncNow(),1500);
 }
 
@@ -4208,8 +4332,49 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 </script>
 
-<!-- FEEDBACK BUTTON -->
+<!-- PERSONALIZAÇÃO BUTTON -->
+  <button id="customBtn" onclick="openCustomModal()" title="Personalizar fundo">🎨</button>
+
+  <!-- FEEDBACK BUTTON -->
 <button id="feedbackBtn" onclick="openFeedbackModal()" title="Relatar problema ou sugestão">🐛</button>
+
+<!-- PERSONALIZAÇÃO MODAL -->
+<div id="customModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:380px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.6)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-weight:800;font-size:16px">🎨 Personalizar Fundo</div>
+      <button onclick="closeCustomModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted)">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Imagem de fundo</div>
+        <label style="display:block;padding:10px 14px;background:var(--surface2);border:1px dashed var(--border);border-radius:8px;cursor:pointer;text-align:center;font-size:13px;color:var(--muted)">
+          📁 Escolher imagem do dispositivo
+          <input type="file" accept="image/*" style="display:none" onchange="handleBgUpload(this)">
+        </label>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Opacidade</div>
+          <span id="bgOpacityVal" style="font-size:12px;font-weight:700;color:var(--accent)">7%</span>
+        </div>
+        <input type="range" id="bgOpacitySlider" min="0" max="30" value="7" style="width:100%;accent-color:var(--accent)" oninput="document.getElementById('bgOpacityVal').textContent=this.value+'%'">
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Posição vertical</div>
+        <select id="bgPositionSel" style="width:100%;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px">
+          <option value="top">Topo</option>
+          <option value="center" selected>Centro</option>
+          <option value="bottom">Baixo</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button onclick="removeBgImage()" style="flex:1;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--muted);font-size:13px">🗑️ Remover</button>
+        <button onclick="saveBgSettings()" style="flex:2;padding:10px;background:var(--accent);border:none;border-radius:8px;cursor:pointer;color:#e8f5e0;font-weight:700;font-size:13px">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- FEEDBACK MODAL -->
 <div id="feedbackModal" class="modal-backdrop" style="display:none" onclick="backdropClose(event,'feedbackModal')">

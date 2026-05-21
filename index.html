@@ -971,7 +971,7 @@ async function syncNow(){
   syncState='syncing';updateSyncUI();
   try{
     await fetch(state.sheetUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'sync_all',transactions:state.transactions,goals:state.goals,investments:state.investments})});
+      body:JSON.stringify({action:'sync_all',transactions:state.transactions,goals:state.goals,investments:state.investments,cards:state.cards||[],mei:state.mei||{}})});
     syncState='ok';addLog('sync',`Sync completo — ${state.transactions.length} lançamentos`);
     autoResolveFeedbacks();
   }catch(e){syncState='error';addLog('error',`Sync erro: ${e.message}`);}
@@ -3041,8 +3041,8 @@ function renderSettings(){
         </div>
       </div>
       <div style="text-align:right">
-        <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--accent)">v${APP_VERSION}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">build ${APP_BUILD}</div>
+        <div style="font-family:var(--mono);font-size:15px;font-weight:800;color:var(--accent);letter-spacing:-.3px">v${APP_VERSION}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">World Domination Plan</div>
       </div>
     </div>
   </div>
@@ -3281,8 +3281,8 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){
 // ══════════════════════════════════════════════════
 // FEEDBACK SYSTEM v1.6.6
 // ══════════════════════════════════════════════════
-const APP_VERSION='1.0.0';
-const APP_BUILD='r1';
+const APP_VERSION='1r-1';
+const APP_BUILD='';
 let currentFeedbackType='bug';
 let _bugTargetEl=null;
 let _bugErrors=[];
@@ -3527,111 +3527,167 @@ async function extractPdfText(file){
 }
 
 function parseInterFatura(text){
+  // ── Parser Nubank PDF ──
+  // Formato: "05 DEZ •••• 0015 Descrição - Parcela X/Y R$ 12,00"
+  // ou linha de data separada + descrição na próxima linha + valor na próxima
   const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
   const groups=[];
-  let currentGroup=null;
+  const MONTH={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
 
-  const monthMap={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+  // ── Detectar ano da fatura pelo cabeçalho ──
+  let faturaYear=new Date().getFullYear();
+  let faturaMonth=0; // mês de referência para inferir ano correto
+  for(const l of lines){
+    // "FATURA 12 JAN 2026" ou "janeiro" ou "fevereiro" no título
+    const ym=l.match(/FATURA\s+\d+\s+[A-Z]{3}\s+(\d{4})/i);
+    if(ym){faturaYear=parseInt(ym[1]);break;}
+    const yy=l.match(/\b(20\d{2})\b/);
+    if(yy){faturaYear=parseInt(yy[1]);break;}
+  }
+  for(const l of lines){
+    const pm=l.match(/TRANSAÇÕES\s+DE\s+\d+\s+([A-Z]{3})\s+A\s+\d+\s+([A-Z]{3})/i);
+    if(pm){faturaMonth=MONTH[pm[1].toLowerCase()]||faturaMonth;break;}
+  }
 
-  // padrão de cabeçalho de cartão: "CARTÃO 2306****1576" ou "CARTÃO 2306****9509"
-  const cardRe=/CART[ÃA]O\s+(\d{4}\*{4}\d{4})/i;
-  // padrão de data: "07 de dez. 2025" ou "7 de dezembro 2025"
-  const dateRe=/^(\d{1,2})\s+de\s+([a-záéíóúâêîôûãõç]+)\.?\s+(\d{4})$/i;
-  // padrão de valor: "- R$ 12,00" ou "R$ 12,00" ou "12,00"
-  const valorRe=/R\$\s*([\d.,]+)/;
+  // ── Padrões ──
+  // Data Nubank: "05 DEZ" ou "5 DEZ" no início da linha
+  const dateShortRe=/^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\b/i;
+  // Sufixo de cartão: "•••• 0015" ou ".... 0015"
+  const cardSuffixRe=/[•.]{4}\s*(\d{4})/;
+  // Valor: "R$ 1.234,56" ou "-R$ 1.234,56"  
+  const valorRe=/-?R\$\s*([\d.]+,[\d]{2})/;
+  // Estorno: começa com "−" ou "Estorno"
+  const estornoRe=/^[−-]R\$|^Estorno/i;
+  // Linhas a ignorar (pagamentos, IOF, saldo, totais)
+  const ignoreRe=/^Pagamento\s+em|^Saldo\s+restante|^IOF\s+de\s*"|^Total\s+a\s+pagar|^Pagamento\s+m[íi]nimo|^Fatura\s+anterior|^Pagamento\s+recebido|^Total\s+de\s+compras|^Outros\s+lança/i;
+  // Linhas de navegação/rodapé do PDF
+  const skipRe=/^\d+\s+de\s+\d+$|^SAMANTA|^FATURA\s+\d|^TRANSAÇÕES\s+DE|^NU$/i;
 
-  let pendingDate=null;
-  let pendingDesc=[];
+  // Primeiro passo: encontrar grupos de cartão pelos sufixos
+  // O Nubank lista por seção "Samanta M H Barbosa" com múltiplos cartões
+  // Vamos criar um grupo padrão e depois separar por sufixo se necessário
+  const defaultGroup={cardSuffix:'Nubank',txs:[]};
+  groups.push(defaultGroup);
 
-  const flush=(group)=>{
-    if(pendingDate&&pendingDesc.length>0){
-      const descStr=pendingDesc.join(' ').trim();
-      // última palavra pode ser o valor
-      const lastWord=pendingDesc[pendingDesc.length-1];
-      const vMatch=lastWord.match(/^([\d.,]+)$/);
-      if(vMatch){
-        const valStr=vMatch[1].replace(/\./g,'').replace(',','.');
-        const valor=parseFloat(valStr);
-        const desc=pendingDesc.slice(0,-1).join(' ').trim();
-        if(valor>0&&desc&&!/^total/i.test(desc)&&group){
-          const fp=simpleHash(pendingDate+'|'+desc+'|'+valor);
-          const parcelMatch=desc.match(/\(Parcela\s+(\d+)\s+de\s+(\d+)\)/i)||desc.match(/\((\d+)\/(\d+)\)/i);
-          group.txs.push({date:pendingDate,description:desc,valor,fp,
-            isParcel:!!parcelMatch,
-            parcelNum:parcelMatch?parseInt(parcelMatch[1]):null,
-            parcelTotal:parcelMatch?parseInt(parcelMatch[2]):null});
-        }
-      }
-    }
-    pendingDate=null;
-    pendingDesc=[];
-  };
-
-  for(let i=0;i<lines.length;i++){
+  let i=0;
+  while(i<lines.length){
     const line=lines[i];
 
-    // detecta novo cartão
-    const cMatch=line.match(cardRe);
-    if(cMatch){
-      flush(currentGroup);
-      currentGroup={cardSuffix:cMatch[1],txs:[]};
-      groups.push(currentGroup);
-      continue;
-    }
+    // pular linhas de rodapé/cabeçalho
+    if(skipRe.test(line)){i++;continue;}
+    // pular linhas de pagamento e totais
+    if(ignoreRe.test(line)){i++;continue;}
 
-    // detecta data
-    const dMatch=line.match(dateRe);
+    // detectar linha de transação Nubank
+    // formato típico: "05 DEZ •••• 0015 Descrição - Parcela 2/10 R$ 99,17"
+    // ou: "05 DEZ •••• 0015 Descrição" na linha + "R$ 99,17" na próxima
+    // ou: "07 DEZ iFood - NuPay R$ 62,79" (sem sufixo de cartão)
+    const dMatch=line.match(dateShortRe);
     if(dMatch){
-      flush(currentGroup);
-      const mon=monthMap[dMatch[2].toLowerCase().slice(0,3)]||1;
-      pendingDate=`${dMatch[3]}-${String(mon).padStart(2,'0')}-${String(dMatch[1]).padStart(2,'0')}`;
-      continue;
-    }
+      const dayNum=parseInt(dMatch[1]);
+      const monNum=MONTH[dMatch[2].toLowerCase()]||1;
+      // inferir ano: se o mês é maior que o mês da fatura, é do ano anterior
+      let year=faturaYear;
+      if(faturaMonth>0&&monNum>faturaMonth+1)year=faturaYear-1;
+      const date=`${year}-${String(monNum).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
 
-    // linha de valor standalone: "R$ 12,00" ou "- R$ 12,00"
-    if(pendingDate&&/^-?\s*R\$\s*[\d.,]+$/.test(line)){
-      const vMatch=line.match(/[\d.,]+$/);
-      if(vMatch&&pendingDesc.length>0){
-        pendingDesc.push(vMatch[0]);
+      // remover prefixo de data da linha
+      let rest=line.slice(dMatch[0].length).trim();
+
+      // remover sufixo de cartão (•••• 0015)
+      let cardSuffix='';
+      const cMatch=rest.match(/^[•.]{4}\s*(\d{4})\s*/);
+      if(cMatch){cardSuffix=cMatch[1];rest=rest.slice(cMatch[0].length).trim();}
+
+      // detectar estorno — pular
+      if(estornoRe.test(rest)){i++;continue;}
+      // detectar IOF — pular
+      if(/^IOF\s+de/i.test(rest)){i++;continue;}
+
+      // extrair valor da mesma linha
+      const vMatch=rest.match(valorRe);
+      let valor=0;
+      let desc=rest;
+      if(vMatch){
+        valor=parseFloat(vMatch[1].replace(/\./g,'').replace(',','.'));
+        desc=rest.slice(0,rest.lastIndexOf(vMatch[0])).trim();
+      } else {
+        // valor pode estar na próxima linha não-data
+        if(i+1<lines.length){
+          const nextLine=lines[i+1];
+          const nvMatch=nextLine.match(valorRe);
+          if(nvMatch&&!dateShortRe.test(nextLine)){
+            valor=parseFloat(nvMatch[1].replace(/\./g,'').replace(',','.'));
+            // pode ter info de conversão entre desc e valor
+            const extraLine=nextLine.replace(valorRe,'').trim();
+            if(extraLine&&!/^USD|^Conversão/i.test(extraLine))desc+=' '+extraLine;
+            i++; // consumiu próxima linha
+          }
+        }
       }
+
+      // limpar descrição
+      desc=desc.replace(/\s+/g,' ').trim();
+      // remover "- NuPay" apenas do FINAL (não quando é "Wine-Clube - NuPay - Parcela")
+      if(!/Parcela/i.test(desc))desc=desc.replace(/\s*-\s*NuPay$/i,'').trim();
+      else desc=desc.replace(/\s*-\s*NuPay\s*-\s*Parcela/i,' - Parcela').trim();
+      // filtrar pagamentos e saldos que passaram pelo dateShortRe
+      if(/^Pagamento\s+em|^Saldo\s+restante|^IOF\s+de/i.test(desc)){i++;continue;}
+      // extrair info de parcela se houver
+      const parcelMatch=desc.match(/[-–]\s*Parcela\s+(\d+)\/(\d+)/i)||desc.match(/Parcela\s+(\d+)\/(\d+)/i);
+
+      if(!desc||valor<=0){i++;continue;}
+
+      const fp=simpleHash(date+'|'+desc+'|'+valor);
+      defaultGroup.txs.push({
+        date,description:desc,valor,fp,cardSuffix,
+        isParcel:!!parcelMatch,
+        parcelNum:parcelMatch?parseInt(parcelMatch[1]):null,
+        parcelTotal:parcelMatch?parseInt(parcelMatch[2]):null,
+      });
+      i++;
       continue;
     }
-
-    // linha de descrição ou valor acoplado
-    if(pendingDate){
-      // pula linhas de total/subtotal
-      if(/^total\s/i.test(line)||/^subtotal/i.test(line))continue;
-      pendingDesc.push(line);
-    }
-  }
-  flush(currentGroup);
-
-  // fallback: se não encontrou nenhum cartão, tenta regex na string completa
-  if(!groups.length||groups.every(g=>g.txs.length===0)){
-    const allTxs=parseInterBlockFallback(text);
-    if(allTxs.length)return [{cardSuffix:'????',txs:allTxs}];
+    i++;
   }
 
-  return groups.filter(g=>g.txs.length>0);
+  // Se encontrou transações, retornar
+  if(defaultGroup.txs.length>0){
+    // agrupar por sufixo de cartão para exibição
+    const bySuffix={};
+    defaultGroup.txs.forEach(t=>{
+      const k=t.cardSuffix||'Nubank';
+      if(!bySuffix[k])bySuffix[k]={cardSuffix:k,txs:[]};
+      bySuffix[k].txs.push(t);
+    });
+    const result=Object.values(bySuffix);
+    return result.length>0?result:[defaultGroup];
+  }
+
+  // fallback genérico
+  const allTxs=parseInterBlockFallback(text);
+  if(allTxs.length)return [{cardSuffix:'Nubank',txs:allTxs}];
+  return [];
 }
 
 function parseInterBlockFallback(text){
-  // regex clássico como último recurso
+  // fallback: tenta capturar qualquer linha com data curta + valor
   const txs=[];
-  const monthMap={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
-  const re=/(\d{1,2})\s+de\s+([a-z]+)\.?\s+(\d{4})\s+(.+?)\s+R\$\s*([\d.,]+)/gi;
+  const MONTH={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+  const year=new Date().getFullYear();
+  const re=/(\d{1,2})\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b([^R]*?)R\$\s*([\d.]+,[\d]{2})/gi;
   let m;
   while((m=re.exec(text))!==null){
     const day=parseInt(m[1]);
-    const mon=monthMap[m[2].toLowerCase().slice(0,3)]||1;
-    const year=parseInt(m[3]);
-    const desc=m[4].trim().replace(/\s+/g,' ');
-    const valor=parseFloat(m[5].replace(/\./g,'').replace(',','.'));
-    if(!valor||valor<=0||/^total/i.test(desc))continue;
+    const mon=MONTH[m[2].toLowerCase()]||1;
+    const desc=m[3].replace(/[•.]{4}\s*\d{4}/g,'').replace(/\s+/g,' ').trim();
+    const valor=parseFloat(m[4].replace(/\./g,'').replace(',','.'));
+    if(!valor||valor<=0||!desc||/pagamento|estorno|IOF/i.test(desc))continue;
     const date=`${year}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const fp=simpleHash(`${date}|${desc}|${valor}`);
-    const pm=desc.match(/\(Parcela\s+(\d+)\s+de\s+(\d+)\)/i);
-    txs.push({date,description:desc,valor,fp,isParcel:!!pm,parcelNum:pm?parseInt(pm[1]):null,parcelTotal:pm?parseInt(pm[2]):null});
+    const pm=desc.match(/Parcela\s+(\d+)\/(\d+)/i);
+    txs.push({date,description:desc,valor,fp,cardSuffix:'',
+      isParcel:!!pm,parcelNum:pm?parseInt(pm[1]):null,parcelTotal:pm?parseInt(pm[2]):null});
   }
   return txs;
 }
@@ -3799,7 +3855,7 @@ function showLockScreen(){
   const userEl=document.getElementById('lockUserInput');
   if(userEl&&getLocalUser())userEl.value=getLocalUser();
   const vEl=document.getElementById('lockVersion');
-  if(vEl)vEl.textContent=`v${APP_VERSION} · build ${APP_BUILD}`;
+  if(vEl)vEl.textContent=`v${APP_VERSION}`;
   document.getElementById('lockHelpPanel').style.display='none';
   lockFailedAttempts=0;
   setTimeout(()=>document.getElementById('lockPwdInput')?.focus(),150);
@@ -3991,6 +4047,7 @@ function submitRecovery(){
 // ── ONBOARDING ────────────────────────────────────
 function showOnboarding(){
   document.getElementById('onboardingScreen').style.display='block';
+  const _obV=document.getElementById('obVersion');if(_obV)_obV.textContent='v'+APP_VERSION;
   document.getElementById('app').style.display='none';
 }
 function obSetStep(n){
@@ -4209,9 +4266,10 @@ document.addEventListener('DOMContentLoaded',()=>{
 <div id="onboardingScreen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;overflow-y:auto">
   <div style="max-width:420px;margin:0 auto;padding:40px 24px 60px">
     <div style="text-align:center;margin-bottom:28px">
-      <div style="width:64px;height:64px;background:var(--accent);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px">💰</div>
+      <div style="width:64px;height:64px;background:var(--accent);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px">🌍</div>
       <div style="font-size:24px;font-weight:800;letter-spacing:-.5px">Bem-vindo ao World Domination Plan</div>
       <div style="font-size:13px;color:var(--muted);margin-top:6px">Configure sua conta em segundos</div>
+      <div style="font-size:11px;color:var(--muted2);margin-top:8px;font-family:var(--mono)" id="obVersion"></div>
     </div>
     <div style="display:flex;justify-content:center;gap:8px;margin-bottom:24px">
       <div class="ob-step active">1</div>

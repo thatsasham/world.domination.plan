@@ -3287,7 +3287,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){
 // ══════════════════════════════════════════════════
 // FEEDBACK SYSTEM v1.6.6
 // ══════════════════════════════════════════════════
-const APP_VERSION='1r-4';
+const APP_VERSION='1r-5';
 const APP_BUILD='';
 let currentFeedbackType='bug';
 let _bugTargetEl=null;
@@ -4414,6 +4414,8 @@ async function obDoLogin(){
       if(data.transactions?.length)state.transactions=data.transactions;
       if(data.goals?.length)state.goals=data.goals;
       if(data.investments?.length)state.investments=data.investments;
+      if(data.cards?.length)state.cards=data.cards;
+      if(data.mei&&Object.keys(data.mei).length)state.mei={...state.mei,...data.mei};
       saveState();setSession();
       document.getElementById('onboardingScreen').style.display='none';
       document.getElementById('app').style.display='flex';

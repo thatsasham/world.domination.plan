@@ -3287,7 +3287,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){
 // ══════════════════════════════════════════════════
 // FEEDBACK SYSTEM v1.6.6
 // ══════════════════════════════════════════════════
-const APP_VERSION='1r-5';
+const APP_VERSION='1r-6';
 const APP_BUILD='';
 let currentFeedbackType='bug';
 let _bugTargetEl=null;
@@ -4142,6 +4142,24 @@ async function saveAuthToSheets(user,pwd){
 }
 
 // ── RESTORE FROM SHEETS ───────────────────────────
+
+function parseMeiFromSheets(raw){
+  if(!raw||typeof raw!=='object')return null;
+  const parseArr=(v)=>{
+    if(Array.isArray(v))return v;
+    if(typeof v==='string'&&v.startsWith('[')){ try{return JSON.parse(v);}catch{return[];} }
+    return[];
+  };
+  return{
+    cnpj:        raw.cnpj||'',
+    razaoSocial: raw.razaoSocial||'',
+    dataAbertura:raw.dataAbertura||'',
+    das:         parseArr(raw.das),
+    nfs:         parseArr(raw.nfs),
+    dasn:        parseArr(raw.dasn),
+    receitasPJ:  parseArr(raw.receitasPJ),
+  };
+}
 async function restoreFromSheets(silent=false){
   if(!state.sheetUrl)return;
   syncState='syncing';updateSyncUI();
@@ -4155,7 +4173,7 @@ async function restoreFromSheets(silent=false){
     if(data.goals?.length)state.goals=data.goals;
     if(data.investments?.length)state.investments=data.investments;
     if(data.cards?.length)state.cards=data.cards;
-    if(data.mei&&Object.keys(data.mei).length)state.mei={...state.mei,...data.mei};
+    if(data.mei&&Object.keys(data.mei).length){const pm=parseMeiFromSheets(data.mei);if(pm)state.mei=pm;}
     // always restore API keys if available in sheets
     if(data.claudeKey)state.claudeKey=data.claudeKey;
     if(data.geminiKey)state.geminiKey=data.geminiKey;
@@ -4415,7 +4433,7 @@ async function obDoLogin(){
       if(data.goals?.length)state.goals=data.goals;
       if(data.investments?.length)state.investments=data.investments;
       if(data.cards?.length)state.cards=data.cards;
-      if(data.mei&&Object.keys(data.mei).length)state.mei={...state.mei,...data.mei};
+      if(data.mei&&Object.keys(data.mei).length){const pm=parseMeiFromSheets(data.mei);if(pm)state.mei=pm;}
       saveState();setSession();
       document.getElementById('onboardingScreen').style.display='none';
       document.getElementById('app').style.display='flex';

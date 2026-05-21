@@ -435,8 +435,8 @@ select option{background:var(--surface2)}
     <div style="background:var(--surface2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;color:var(--muted)">
       💡 Registrar saída no saldo ao salvar?
       <div style="display:flex;gap:8px;margin-top:8px">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="invDeduct" value="yes" checked style="width:auto"/> Sim</label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="invDeduct" value="no" style="width:auto"/> Não</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="invDeduct" value="yes" style="width:auto"/> Sim, abater do saldo</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="invDeduct" value="no" checked style="width:auto"/> Não (só registrar o investimento)</label>
       </div>
     </div>
     <div class="modal-footer">
@@ -2524,7 +2524,9 @@ function renderProjections(){
   <div class="card" style="border-left:4px solid ${p.color};margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
       <div><div style="font-size:22px">${p.emoji}</div><div style="font-weight:800;font-size:18px">${p.name}</div><div style="color:var(--muted);font-size:13px">Faltam ${fmt(p.remaining)}</div></div>
-      <div style="text-align:right">${p.months?`<div style="font-size:32px;font-weight:800;color:${p.color}">${p.months}</div><div style="font-size:13px;color:var(--muted)">meses</div>`:'<div style="color:var(--muted);font-size:13px">Defina um aporte</div>'}</div>
+      <div style="text-align:right">
+        ${p.months?`<div style="font-size:32px;font-weight:800;color:${p.color}">${p.months}</div><div style="font-size:13px;color:var(--muted)">meses para a meta</div>`:'<div style="color:var(--muted);font-size:13px">Defina um aporte</div>'}
+        ${p.deadline?`<div style="font-size:11px;color:var(--muted);margin-top:6px">📅 Prazo: ${fmtDate(p.deadline)}</div>${(()=>{const dl=new Date(p.deadline);const today=new Date();const diff=Math.ceil((dl-today)/86400000);const projDays=p.months?p.months*30:null;const diffFromProj=projDays&&diff>0?diff-projDays:null;return diff>0?`<div style="font-size:11px;margin-top:2px;color:${diffFromProj!==null?diffFromProj>=0?'var(--green)':'var(--red)':'var(--muted)'}">${diffFromProj!==null?(diffFromProj>=0?`✅ ${diffFromProj}d de sobra`:`⚠️ ${Math.abs(diffFromProj)}d de atraso`):`${diff} dias restantes`}</div>`:diff===0?'<div style="font-size:11px;color:var(--yellow);margin-top:2px">⚠️ Prazo hoje!</div>':'<div style="font-size:11px;color:var(--red);margin-top:2px">❌ Prazo vencido</div>'})()}`:''}</div>
     </div>
     ${p.scenarios.length>0?`<div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:700;letter-spacing:.5px">SUGESTÕES:</div>
     ${p.scenarios.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--surface2);border-radius:8px;margin-bottom:5px;font-size:13px"><span>✂️</span><span style="flex:1">Cortar 25% em <strong>${s.cat}</strong> (${fmt(s.reduction)}/mês)</span><span style="color:var(--green);font-weight:700">-${s.diff} ${s.diff===1?'mês':'meses'}</span></div>`).join('')}`:''}
@@ -2583,12 +2585,16 @@ function renderInvestments(){
             <span style="font-size:12px;color:var(--muted)">Rendimento</span>
             <span style="font-weight:800;color:${earning>=0?'var(--green)':'var(--red)'};font-family:var(--mono)">${earning>=0?'+':''}${fmt(earning)} <span style="font-size:11px">(${pct}%)</span></span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:6px;align-items:center">
-            <button class="btn btn-secondary btn-sm" onclick="openAporteModal('${inv.id}')">➕ Aporte</button>
-            <button class="btn btn-blue btn-sm" onclick="openUpdateInvest('${inv.id}')">📊 Atualizar</button>
-            <button class="btn btn-success btn-sm" onclick="openRedeemModal('${inv.id}')">📤 Resgatar</button>
-            <button class="tx-act-btn" onclick="openInvestModal(state.investments.find(x=>x.id==='${inv.id}'))">✏️</button>
-            <button class="tx-act-btn del" onclick="deleteInvestment('${inv.id}')">🗑️</button>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-secondary btn-sm" style="flex:1" onclick="openAporteModal('${inv.id}')">➕ Aporte</button>
+              <button class="btn btn-blue btn-sm" style="flex:1" onclick="openUpdateInvest('${inv.id}')">📊 Atualizar</button>
+              <button class="btn btn-success btn-sm" style="flex:1" onclick="openRedeemModal('${inv.id}')">📤 Resgatar</button>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="tx-act-btn" style="flex:1;justify-content:center" onclick="openInvestModal(state.investments.find(x=>x.id==='${inv.id}'))">✏️ Editar</button>
+              <button class="tx-act-btn del" style="flex:1;justify-content:center" onclick="deleteInvestment('${inv.id}')">🗑️ Excluir</button>
+            </div>
           </div>
         </div>`;
       }).join('')}
@@ -2689,7 +2695,7 @@ function renderCredit(){
     '<div class="page-header">'
     +'<div class="page-title">Cartões de Crédito 💳</div>'
     +'<div style="display:flex;gap:8px">'
-    +'<button class="btn btn-secondary" onclick="openImportFaturaModal()">📥 Importar Fatura</button>'
+    +'<button class="btn btn-secondary" onclick="openImportFaturaModal()">📥 Importar PDF Nubank</button>'
     +'<button class="btn btn-primary" onclick="openCardModal()">+ Novo Cartão</button>'
     +'</div></div>'
     +(state.cards.length===0
@@ -3281,7 +3287,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){
 // ══════════════════════════════════════════════════
 // FEEDBACK SYSTEM v1.6.6
 // ══════════════════════════════════════════════════
-const APP_VERSION='1r-2';
+const APP_VERSION='1r-4';
 const APP_BUILD='';
 let currentFeedbackType='bug';
 let _bugTargetEl=null;
@@ -3536,17 +3542,27 @@ function parseInterFatura(text){
 
   // ── Detectar ano da fatura pelo cabeçalho ──
   let faturaYear=new Date().getFullYear();
-  let faturaMonth=0; // mês de referência para inferir ano correto
+  let periodoStartMon=0; // mês de INÍCIO do período (ex: DEZ na fatura JAN)
+  let periodoEndMon=0;   // mês de FIM do período (ex: JAN na fatura JAN)
+  let periodoStartYear=faturaYear;
+  let periodoEndYear=faturaYear;
+
+  // Detectar ano pelo cabeçalho "FATURA 12 JAN 2026"
   for(const l of lines){
-    // "FATURA 12 JAN 2026" ou "janeiro" ou "fevereiro" no título
     const ym=l.match(/FATURA\s+\d+\s+[A-Z]{3}\s+(\d{4})/i);
-    if(ym){faturaYear=parseInt(ym[1]);break;}
-    const yy=l.match(/\b(20\d{2})\b/);
-    if(yy){faturaYear=parseInt(yy[1]);break;}
+    if(ym){faturaYear=parseInt(ym[1]);periodoEndYear=faturaYear;periodoStartYear=faturaYear;break;}
   }
+  // Detectar período "TRANSAÇÕES DE 05 DEZ A 05 JAN"
   for(const l of lines){
     const pm=l.match(/TRANSAÇÕES\s+DE\s+\d+\s+([A-Z]{3})\s+A\s+\d+\s+([A-Z]{3})/i);
-    if(pm){faturaMonth=MONTH[pm[1].toLowerCase()]||faturaMonth;break;}
+    if(pm){
+      periodoStartMon=MONTH[pm[1].toLowerCase()]||0;
+      periodoEndMon=MONTH[pm[2].toLowerCase()]||0;
+      // Se o mês de início é maior que o mês de fim → virada de ano
+      // Ex: DEZ(12) > JAN(1) → início é ano anterior
+      if(periodoStartMon>periodoEndMon){periodoStartYear=faturaYear-1;}
+      break;
+    }
   }
 
   // ── Padrões ──
@@ -3586,9 +3602,16 @@ function parseInterFatura(text){
     if(dMatch){
       const dayNum=parseInt(dMatch[1]);
       const monNum=MONTH[dMatch[2].toLowerCase()]||1;
-      // inferir ano: se o mês é maior que o mês da fatura, é do ano anterior
+      // inferir ano por período: transações no mês de início usam periodoStartYear, fim usam periodoEndYear
       let year=faturaYear;
-      if(faturaMonth>0&&monNum>faturaMonth+1)year=faturaYear-1;
+      if(periodoStartMon>0&&periodoEndMon>0){
+        if(periodoStartMon>periodoEndMon){
+          // virada de ano: meses >= periodoStartMon são do ano anterior
+          year=monNum>=periodoStartMon?periodoStartYear:periodoEndYear;
+        }
+      } else if(monNum>( periodoEndMon||new Date().getMonth()+1)+1){
+        year=faturaYear-1;
+      }
       const date=`${year}-${String(monNum).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
 
       // remover prefixo de data da linha
@@ -3960,7 +3983,13 @@ async function exportBugs(){
         `Descrição: ${f.description}`,
       ].join('\n')),
     ].join('\n');
-    await navigator.clipboard.writeText(linhas);
+    // download .txt
+    const blob=new Blob([linhas],{type:'text/plain;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`WDP_feedbacks_${new Date().toISOString().slice(0,10)}.txt`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
     // marca como enviado localmente
     (state.feedbackLog||[]).forEach(f=>{if(f.status==='novo')f.status='enviado';});
     saveState();
@@ -3971,7 +4000,7 @@ async function exportBugs(){
           body:JSON.stringify({action:'mark_feedback_sent',index:f.sheetIndex})}).catch(()=>{});
       }
     });
-    alert(`✅ ${novos.length} feedback(s) copiado(s) para o clipboard!\n\nCole aqui no chat para eu analisar.`);
+    showToast(`✅ ${novos.length} feedback(s) exportado(s) como .txt!`,'success');
   }catch(e){alert('Erro: '+e.message);}
   btn.disabled=false;btn.textContent='📤 Exportar Bugs Novos';
 }
@@ -4125,12 +4154,14 @@ async function restoreFromSheets(silent=false){
     if(data.transactions?.length)state.transactions=data.transactions;
     if(data.goals?.length)state.goals=data.goals;
     if(data.investments?.length)state.investments=data.investments;
+    if(data.cards?.length)state.cards=data.cards;
+    if(data.mei&&Object.keys(data.mei).length)state.mei={...state.mei,...data.mei};
     // always restore API keys if available in sheets
     if(data.claudeKey)state.claudeKey=data.claudeKey;
     if(data.geminiKey)state.geminiKey=data.geminiKey;
     if(data.aiProvider)state.aiProvider=data.aiProvider;
     saveState();syncState='ok';updateSyncUI();
-    addLog('sync',`Restaurado: ${data.transactions?.length||0} lançamentos`);
+    addLog('sync',`Restaurado: ${data.transactions?.length||0} lançamentos, ${data.cards?.length||0} cartões`);
     if(!silent){renderTab();alert('✅ Dados restaurados do Sheets!')}
     else renderTab();
   }catch(e){

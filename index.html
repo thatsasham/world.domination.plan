@@ -751,9 +751,9 @@ select option{background:var(--surface2)}
 </div>
 
 <script>
-// ══════════════════════════════════════════════════
+// ==================================================
 // CONSTANTS
-// ══════════════════════════════════════════════════
+// ==================================================
 const CATS_DEFAULT=[
   // despesas gerais
   {id:'alimentacao',label:'Alimentação',color:'#f97316',icon:'🍔',type:'expense'},
@@ -796,9 +796,9 @@ const INVEST_CONFIG={
   outros:{label:'Outros',  icon:'💼', color:'#64748b', grad:'linear-gradient(135deg,#1e293b,#334155)'},
 };
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // STATE
-// ══════════════════════════════════════════════════
+// ==================================================
 let state={
   transactions:[],goals:[],categories:[],
   investments:[],cards:[],
@@ -880,9 +880,9 @@ function saveState(){
   S('ff_mei',state.mei);
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // HELPERS
-// ══════════════════════════════════════════════════
+// ==================================================
 const fmt=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v??0);
 const fmtDate=iso=>{
   if(!iso)return'';
@@ -906,9 +906,9 @@ function addLog(type,msg){
   saveState();
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // THEME
-// ══════════════════════════════════════════════════
+// ==================================================
 function applyTheme(){
   document.documentElement.setAttribute('data-theme',state.dark?'dark':'light');
   const btn=document.getElementById('themeBtn');
@@ -916,9 +916,9 @@ function applyTheme(){
 }
 function toggleTheme(){state.dark=!state.dark;saveState();applyTheme()}
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // SIDEBAR
-// ══════════════════════════════════════════════════
+// ==================================================
 function toggleSidebar(){
   const sb=document.getElementById('sidebar');
   const ov=document.getElementById('sidebar-overlay');
@@ -942,9 +942,9 @@ function navigate(tab){
   renderTab();
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // SYNC
-// ══════════════════════════════════════════════════
+// ==================================================
 let syncState='idle';
 
 function updateSyncUI(){
@@ -1031,17 +1031,17 @@ function compareVersions(a,b){
   return 0;
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // MODALS
-// ══════════════════════════════════════════════════
+// ==================================================
 function openModal(id){document.getElementById(id).style.display='flex'}
 function showModal(html){document.getElementById('meiModalContent').innerHTML=html;openModal('meiModal');}
 function closeModal(id){if(id)document.getElementById(id).style.display='none';else document.getElementById('meiModal').style.display='none';}
 function backdropClose(e,id){if(e.target===e.currentTarget)closeModal(id)}
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // TX FORM
-// ══════════════════════════════════════════════════
+// ==================================================
 let currentTxType='expense';
 let _lastSuggestedCat=null;
 function suggestCategory(desc){
@@ -1205,9 +1205,9 @@ function deleteTx(id){
   saveState();renderTab();
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // GOALS
-// ══════════════════════════════════════════════════
+// ==================================================
 let selectedGoalEmoji='🎯';
 let selectedGoalColor='#6366f1';
 
@@ -1270,9 +1270,9 @@ function confirmDeposit(){
   saveState();closeModal('depositModal');renderTab();
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // INVESTMENTS
-// ══════════════════════════════════════════════════
+// ==================================================
 function openInvestModal(inv=null){
   state.editingInvestId=inv?inv.id:null;
   document.getElementById('investModalTitle').textContent=inv?'Editar Investimento':'Novo Investimento';
@@ -1349,9 +1349,9 @@ function deleteInvestment(id){
   saveState();renderTab();
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // CARDS & FATURAS
-// ══════════════════════════════════════════════════
+// ==================================================
 let selectedCardColor='#1a2332';
 
 function openCardModal(card=null){
@@ -1451,9 +1451,9 @@ function confirmPayFatura(){
   saveState();closeModal('payFaturaModal');renderTab();
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // PASSWORD
-// ══════════════════════════════════════════════════
+// ==================================================
 let pwdCallback=null;
 function askPassword(desc,cb){
   if(!state.sheetPwd)return alert('Configure uma senha primeiro nas Configurações.');
@@ -1485,9 +1485,9 @@ function confirmSetPwd(){
   state.sheetPwd=p1;saveState();closeModal('setPwdModal');renderTab();alert('Senha definida! ✅');
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // SHEETS DELETE
-// ══════════════════════════════════════════════════
+// ==================================================
 function openSheetDeleteModal(){document.getElementById('sheetDelFrom').value='';document.getElementById('sheetDelTo').value='';openModal('sheetDeleteModal')}
 function requestSheetDelete(){
   const from=document.getElementById('sheetDelFrom').value,to=document.getElementById('sheetDelTo').value;
@@ -1508,9 +1508,9 @@ async function deleteSheetPeriod(from,to){
   catch(e){alert('Erro.');}
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // BATCH EDIT
-// ══════════════════════════════════════════════════
+// ==================================================
 function toggleBatchSelect(id,checked){
   if(checked){if(!state.batchEditIds.includes(id))state.batchEditIds.push(id);}
   else state.batchEditIds=state.batchEditIds.filter(x=>x!==id);
@@ -1572,9 +1572,9 @@ function confirmBatchEdit(){
 }
 function clearBatchSelect(){state.batchEditIds=[];renderTransactionsOnly()}
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // IMPORT
-// ══════════════════════════════════════════════════
+// ==================================================
 let importedItems=[];
 let importSelected=new Set();
 function openImportModal(){showImportStep(1);document.getElementById('importStatus').textContent='';document.getElementById('importFileInput').value='';openModal('importModal')}
@@ -1708,9 +1708,9 @@ function confirmImport(){
   alert(`✅ ${toImport.length} lançamento${toImport.length!==1?'s':''} importado${toImport.length!==1?'s':''}!`);
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // AI
-// ══════════════════════════════════════════════════
+// ==================================================
 async function runAI(){
   if(!state.aiEnabled){alert('A IA está desativada nas configurações.');return}
   const key=state.aiProvider==='claude'?state.claudeKey:state.geminiKey;
@@ -1749,9 +1749,9 @@ async function runAI(){
   btn.disabled=false;btn.textContent='🤖 Analisar';
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // DERIVED DATA
-// ══════════════════════════════════════════════════
+// ==================================================
 function getBalance(){
   const txBal=state.transactions.filter(t=>!t.isFaturaPayment||true).reduce((s,t)=>s+(t.type==='income'?t.amount:-t.amount),0);
   return (state.initialBalance||0)+txBal;
@@ -1799,9 +1799,9 @@ function buildPie(data,size=130){
   return`<svg viewBox="0 0 100 100" width="${size}" height="${size}">${paths}<circle cx="50" cy="50" r="22" fill="var(--bg)"/></svg>`;
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // AUTO-CATEGORIZATION (100% local, sem IA)
-// ══════════════════════════════════════════════════
+// ==================================================
 const CATEGORY_RULES=[
   {keywords:['ifood','uber eats','rappi','restaurante','hamburgueria','hamburguer','lanchonete','pizzaria','padaria','cafe','coffee','sushi','churrascaria','mca alimenta','bacio di latte','jazz hambur','ulurucafe','penido','gastronomia','crouton','subway','mcdonalds','burguer','pizza','acai','sorveteria','pastelaria'],cat:'alimentacao'},
   {keywords:['uber','99pop','99 pop','cabify','taxi','onibus','metro','passagem'],cat:'transporte'},
@@ -1832,9 +1832,9 @@ function autoCategorize(description,type){
   return type==='income'?'outros_rec':'outros';
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // ANONYMOUS EXPORT
-// ══════════════════════════════════════════════════
+// ==================================================
 function exportAnonymous(){
   const rows=[['tipo','categoria','valor']];
   state.transactions.forEach(t=>{
@@ -1848,9 +1848,9 @@ function exportAnonymous(){
   addLog('export','Exportado relatório anônimo');
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // EXPORT
-// ══════════════════════════════════════════════════
+// ==================================================
 function openPDFModal(){openModal('pdfModal')}
 
 function generatePDF(){
@@ -2078,9 +2078,9 @@ function importJSON(e){
 }
 function exportPDF(){window.print()}
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // CATEGORIES
-// ══════════════════════════════════════════════════
+// ==================================================
 function addCat(){
   const iconPreview=document.getElementById('newCatIconPreview')?.textContent||'📦';
   const iconInput=document.getElementById('newCatIcon')?.value.trim();
@@ -2105,9 +2105,9 @@ function deleteCat(id){
   saveState();renderTab();
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // RENDER TABS
-// ══════════════════════════════════════════════════
+// ==================================================
 function renderTab(){
   const c=document.getElementById('content');c.innerHTML='';
   const fn={dashboard:renderDashboard,transactions:renderTransactions,reports:renderReports,goals:renderGoals,projections:renderProjections,investments:renderInvestments,credit:renderCredit,mei:renderMei,settings:renderSettings};
@@ -2115,7 +2115,7 @@ function renderTab(){
   updateSyncUI();
 }
 
-// ── DASHBOARD ──────────────────────────────────────
+// -- DASHBOARD --------------------------------------
 function renderDashboard(){
   const now=new Date();
   const balance=getBalance();
@@ -2333,7 +2333,7 @@ function renderDashboard(){
   </div>`;
 }
 
-// ── TRANSACTIONS ───────────────────────────────────
+// -- TRANSACTIONS -----------------------------------
 function renderTransactionsOnly(){
   const listEl=document.getElementById('txList');
   if(!listEl){renderTab();return}
@@ -2419,7 +2419,7 @@ function renderTransactions(){
   if(inp&&f.q){inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length)}
 }
 
-// ── REPORTS ────────────────────────────────────────
+// -- REPORTS ----------------------------------------
 function renderReports(){
   const from=state.reportFrom,to=state.reportTo;
   const txInPeriod=state.transactions.filter(t=>t.date>=from&&t.date<=to);
@@ -2482,7 +2482,7 @@ function renderReports(){
   ${diffPct!==null?`<div class="card"><div class="card-title">Comparativo com Mês Anterior</div><p style="font-size:14px">Você gastou <strong style="color:${parseFloat(diffPct)>0?'var(--red)':'var(--green)'}"> ${Math.abs(diffPct)}% ${parseFloat(diffPct)>0?'a mais':'a menos'}</strong> em relação ao mês anterior (${fmt(prevExp)}).</p></div>`:''}`;
 }
 
-// ── GOALS ──────────────────────────────────────────
+// -- GOALS ------------------------------------------
 function renderGoals(){
   document.getElementById('content').innerHTML=`
   <div class="page-header">
@@ -2523,7 +2523,7 @@ function renderGoals(){
   </div>`}`;
 }
 
-// ── PROJECTIONS ────────────────────────────────────
+// -- PROJECTIONS ------------------------------------
 function renderProjections(){
   const monthTx=getMonthTx();
   const expByCat=getCatExp(monthTx);
@@ -2574,7 +2574,7 @@ function renderProjections(){
   </div>`;
 }
 
-// ── INVESTMENTS ────────────────────────────────────
+// -- INVESTMENTS ------------------------------------
 function renderInvestments(){
   const active=state.investments.filter(i=>i.status==='active');
   const redeemed=state.investments.filter(i=>i.status==='redeemed');
@@ -2651,7 +2651,7 @@ function renderInvestments(){
   </div>`:''}`;
 }
 
-// ── CREDIT ─────────────────────────────────────────
+// -- CREDIT -----------------------------------------
 function renderCredit(){
   const now=new Date();
   const cv=state.creditView;
@@ -2792,7 +2792,7 @@ function deleteCreditTx(id){
 
 
 
-// ── RECURRENCE REAL ──────────────────────────────────
+// -- RECURRENCE REAL ----------------------------------
 function generateRecurring(tx,months){
   const txs=[];
   const base=new Date(tx.date);
@@ -2806,7 +2806,7 @@ function generateRecurring(tx,months){
   return txs;
 }
 
-// ── INVESTMENT APORTE ────────────────────────────────
+// -- INVESTMENT APORTE --------------------------------
 let aporteInvestId=null;
 function openAporteModal(id){
   aporteInvestId=id;
@@ -2835,7 +2835,7 @@ function confirmAporte(){
   saveState();closeModal('aporteModal');renderTab();
   syncNow();
 }
-// ── MEI ────────────────────────────────────────────
+// -- MEI --------------------------------------------
 function renderMei(){
   const now=new Date();
   const meiMes=now.toISOString().slice(0,7);
@@ -3294,9 +3294,9 @@ function requestDeleteLocal(){
   alert('✅ Dados locais apagados. O sync automático está pausado por 10 minutos.');
 }
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // GLOBAL SEARCH
-// ══════════════════════════════════════════════════
+// ==================================================
 function toggleGlobalSearch(){
   const bar=document.getElementById('globalSearchBar');
   const isOpen=bar.style.display!=='none';
@@ -3351,9 +3351,9 @@ function runGlobalSearch(q){
 // keyboard shortcut Ctrl+K
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();toggleGlobalSearch()}});
 
-// ══════════════════════════════════════════════════
+// ==================================================
 // FEEDBACK SYSTEM v1.6.6
-// ══════════════════════════════════════════════════
+// ==================================================
 const APP_VERSION='1r-8';
 const CHANGELOG=[
   {version:'1r-8',type:'novo',text:'Importador PDF Nubank + Inter com Gemini — categorização automática'},
@@ -3476,7 +3476,7 @@ async function submitFeedback(){
 
 
 
-// ── IMPORTAR FATURA PDF INTER ─────────────────────
+// -- IMPORTAR FATURA PDF INTER ---------------------
 let importFaturaPreselectedCardId = null;
 let parsedFaturaGroups = []; // [{cardSuffix, txs:[]}]
 
@@ -3663,14 +3663,14 @@ async function extractPdfText(file){
 }
 
 function parseInterFatura(text){
-  // ── Parser Nubank PDF ──
+  // -- Parser Nubank PDF --
   // Formato: "05 DEZ •••• 0015 Descrição - Parcela X/Y R$ 12,00"
   // ou linha de data separada + descrição na próxima linha + valor na próxima
   const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
   const groups=[];
   const MONTH={jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
 
-  // ── Detectar ano da fatura pelo cabeçalho ──
+  // -- Detectar ano da fatura pelo cabeçalho --
   let faturaYear=new Date().getFullYear();
   let periodoStartMon=0; // mês de INÍCIO do período (ex: DEZ na fatura JAN)
   let periodoEndMon=0;   // mês de FIM do período (ex: JAN na fatura JAN)
@@ -3695,7 +3695,7 @@ function parseInterFatura(text){
     }
   }
 
-  // ── Padrões ──
+  // -- Padrões --
   // Data Nubank: "05 DEZ" ou "5 DEZ" no início da linha
   const dateShortRe=/^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\b/i;
   // Sufixo de cartão: "•••• 0015" ou ".... 0015"
@@ -4080,7 +4080,7 @@ function submitRecovery(){
 }
 
 
-// ── ONBOARDING ────────────────────────────────────
+// -- ONBOARDING ------------------------------------
 const APP_SESSION='ff_session';
 
 function getLocalPwd(){return localStorage.getItem('ff_app_pwd')||''}
@@ -4194,7 +4194,7 @@ async function exportBugs(){
       if(btn){btn.disabled=false;btn.textContent=getBugBtnLabel();}
       return;
     }
-    const sep = '═'.repeat(51);
+    const sep = '='.repeat(51);
     const txtLines = [
       sep,
       'World Domination Plan v'+APP_VERSION+' — Relatório de Bugs',
@@ -4223,7 +4223,7 @@ async function exportBugs(){
         txtLines.push('❌ Erros console:');
         ctx.consoleErrors.forEach(function(e){txtLines.push('  '+e.msg);});
       }
-      txtLines.push('─'.repeat(51));
+      txtLines.push('-'.repeat(51));
     });
     const blob = new Blob([txtLines.join('
 ')],{type:'text/plain;charset=utf-8'});
@@ -4347,7 +4347,7 @@ function submitRecovery(){
 }
 
 
-// ── ONBOARDING ────────────────────────────────────
+// -- ONBOARDING ------------------------------------
 function showOnboarding(){
   document.getElementById('onboardingScreen').style.display='block';
   const _obV=document.getElementById('obVersion');if(_obV)_obV.textContent='v'+APP_VERSION;
@@ -4415,7 +4415,7 @@ async function saveAuthToSheets(user,pwd){
   }catch(e){}
 }
 
-// ── RESTORE FROM SHEETS ───────────────────────────
+// -- RESTORE FROM SHEETS ---------------------------
 
 function parseMeiFromSheets(raw){
   if(!raw||typeof raw!=='object')return null;

@@ -4225,8 +4225,7 @@ async function exportBugs(){
       }
       txtLines.push('-'.repeat(51));
     });
-    const blob = new Blob([txtLines.join('
-')],{type:'text/plain;charset=utf-8'});
+    const blob = new Blob([txtLines.join('\n')],{type:'text/plain;charset=utf-8'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'WDP_bugs_'+new Date().toISOString().slice(0,10)+'.txt';

@@ -360,7 +360,6 @@ select option{background:var(--surface2)}
     <div class="nav-section-label">Financeiro</div>
     <button class="nav-item" data-tab="banks" onclick="navigate('banks')"><span class="nav-icon-wrap">🏦</span>Bancos & Contas</button>
     <button class="nav-item" data-tab="pj" onclick="navigate('pj')"><span class="nav-icon-wrap">🏢</span>Área PJ</button>
-    <button class="nav-item" data-tab="car"><span class="nav-icon-wrap">🚗</span>Meu Carro</button>
     <div class="nav-divider"></div>
     <div class="nav-section-label">Análise</div>
     <button class="nav-item" data-tab="reports"><span class="nav-icon-wrap">📈</span>Relatórios</button>
@@ -983,7 +982,6 @@ select option{background:var(--surface2)}
       <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;cursor:pointer;border:1px solid var(--border)"><input type="checkbox" id="pdf_monthly" checked style="width:16px;height:16px;accent-color:var(--accent)"/><span style="font-size:13px">📅 Comparativo mensal (últimos 6 meses)</span></label>
       <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;cursor:pointer;border:1px solid var(--border)"><input type="checkbox" id="pdf_patrimony" checked style="width:16px;height:16px;accent-color:var(--accent)"/><span style="font-size:13px">💰 Patrimônio & Investimentos</span></label>
       <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;cursor:pointer;border:1px solid var(--border)"><input type="checkbox" id="pdf_goals" checked style="width:16px;height:16px;accent-color:var(--accent)"/><span style="font-size:13px">🎯 Metas</span></label>
-      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;cursor:pointer;border:1px solid var(--border)"><input type="checkbox" id="pdf_car" checked style="width:16px;height:16px;accent-color:var(--accent)"/><span style="font-size:13px">🚗 Gastos do Carro</span></label>
       <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;cursor:pointer;border:1px solid var(--border)"><input type="checkbox" id="pdf_transactions" checked style="width:16px;height:16px;accent-color:var(--accent)"/><span style="font-size:13px">📋 Últimos lançamentos</span></label>
       <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;cursor:pointer;border:1px solid var(--border)"><input type="checkbox" id="pdf_insights" checked style="width:16px;height:16px;accent-color:var(--accent)"/><span style="font-size:13px">✨ Análise e comparativo</span></label>
     </div>
@@ -1147,7 +1145,6 @@ const INVEST_CONFIG={
 let state={
   transactions:[],goals:[],categories:[],
   investments:[],cards:[],
-  car:{name:'',model:'',plate:'',year:'',km:0,fuelType:'flex',tankSize:50,nextRevisionKm:0,lastRevisionKm:0,insuranceExpiry:''},
   initialBalance:0,
   dashPeriod:'month',
   dark:true,tab:'dashboard',
@@ -1179,8 +1176,6 @@ function loadState(){
   state.aiFocus=L('ff_ai_focus','sobrevivencia'); // 'dividas','metas','sobrevivencia'
   state.aiReports=L('ff_ai_reports',[]);
   state.cards=L('ff_cards',[]);
-  state.car=L('ff_car',{name:'',model:'',plate:'',year:'',km:0,fuelType:'flex',tankSize:50,nextRevisionKm:0,lastRevisionKm:0,insuranceExpiry:''});
-  state.carPeriod=L('ff_car_period','year');
   state.initialBalance=L('ff_initial_balance',0);
   state.dashPeriod=L('ff_dash_period','month');
   // category migration
@@ -1247,7 +1242,7 @@ function saveState(){
   S('ff_budget',state.budget||{survival:0,leisure:0});
   S('ff_ai_focus',state.aiFocus||'sobrevivencia');
   S('ff_ai_reports',(state.aiReports||[]).slice(0,30));
-  S('ff_car',state.car);S('ff_initial_balance',state.initialBalance);
+  S('ff_initial_balance',state.initialBalance);
   S('ff_dash_period',state.dashPeriod);
   S('ff_cats',state.categories);S('ff_dark',state.dark);
   S('ff_aiprov',state.aiProvider);S('ff_ck',state.claudeKey);
@@ -1325,7 +1320,7 @@ function closeSidebar(){
   document.getElementById('sidebar-overlay').classList.remove('active');
 }
 
-const TAB_TITLES={pj:'Área PJ',banks:'Bancos & Contas',credit:'Bancos & Contas',dashboard:'Dashboard',transactions:'Lançamentos',reports:'Relatórios',goals:'Metas',projections:'Projeções',investments:'Investimentos',credit:'Cartões de Crédito',car:'Meu Carro',settings:'Configurações',faq:'Central de Dúvidas',debts:'Dívidas'};
+const TAB_TITLES={pj:'Área PJ',banks:'Bancos & Contas',credit:'Bancos & Contas',dashboard:'Dashboard',transactions:'Lançamentos',reports:'Relatórios',goals:'Metas',projections:'Projeções',investments:'Investimentos',credit:'Cartões de Crédito',settings:'Configurações',faq:'Central de Dúvidas',debts:'Dívidas'};
 
 function navigate(tab){
   state.tab=tab;
@@ -1405,7 +1400,6 @@ async function syncNow(forced=false){
     goals:state.goals,
     investments:state.investments,
     cards:state.cards||[],
-    car:state.car||{},
     mei:state.mei||{},
     debts:state.debts||[],
     aiReports:state.aiReports||[],
@@ -2087,6 +2081,28 @@ function parseOFX(text){
   });
   return results;
 }
+// Parser tolerante p/ o array JSON da importação de extrato (mesma robustez do de fatura).
+function parseImportTxs(rawText){
+  let txt=String(rawText||'').replace(/```json|```/g,'').trim();
+  const s0=txt.indexOf('['), e0=txt.lastIndexOf(']');
+  if(s0===-1) throw new Error('A IA não retornou dados válidos.');
+  let body = e0>s0 ? txt.slice(s0,e0+1) : txt.slice(s0);
+  try{ return JSON.parse(body); }catch(_){}
+  let fixed=body.replace(/,\s*([}\]])/g,'$1').replace(/}\s*{/g,'},{');
+  try{ return JSON.parse(fixed); }catch(_){}
+  // resposta truncada: fechar no último objeto completo
+  try{ const l=fixed.lastIndexOf('}'); if(l>0) return JSON.parse(fixed.slice(0,l+1).replace(/,\s*$/,'')+']'); }catch(_){}
+  // resgate item-a-item por balanceamento de chaves
+  const out=[]; let depth=0,os=-1,inStr=false,esc=false;
+  for(let i=0;i<fixed.length;i++){const ch=fixed[i];
+    if(inStr){if(esc)esc=false;else if(ch==='\\')esc=true;else if(ch==='"')inStr=false;continue;}
+    if(ch==='"'){inStr=true;continue;}
+    if(ch==='{'){if(depth===0)os=i;depth++;}
+    else if(ch==='}'){depth--;if(depth===0&&os!==-1){try{out.push(JSON.parse(fixed.slice(os,i+1)))}catch(_){}os=-1;}}
+  }
+  if(out.length) return out;
+  throw new Error('Não foi possível ler a resposta da IA (JSON inválido). Tente importar novamente.');
+}
 async function parsePDFwithAI(file){
   if(!state.aiEnabled)throw new Error('IA desativada. Use CSV ou OFX para importar.');
   const key=state.aiProvider==='claude'?state.claudeKey:state.geminiKey;
@@ -2095,17 +2111,14 @@ async function parsePDFwithAI(file){
   const sys='Você é um extrator de dados financeiros. Analise o extrato bancário e retorne APENAS um array JSON válido. Cada objeto: { "date": "YYYY-MM-DD", "description": "string", "amount": number_positivo, "type": "income" ou "expense" }. Retorne APENAS o array JSON.';
   let text='';
   if(state.aiProvider==='claude'){
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,system:sys,messages:[{role:'user',content:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}},{type:'text',text:'Extraia todas as transações.'}]}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:8000,system:sys,messages:[{role:'user',content:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}},{type:'text',text:'Extraia todas as transações.'}]}]})});
     const d=await res.json();text=d.content?.[0]?.text||'';
   }else{
     const textContent=await extractPDFText(file);
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_instruction:{parts:[{text:sys}]},contents:[{parts:[{text:`Extrato:\n${textContent}`}]}]})});
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_instruction:{parts:[{text:sys}]},contents:[{parts:[{text:`Extrato:\n${textContent}`}]}],generationConfig:{temperature:0.1,maxOutputTokens:65536}})});
     const d=await res.json();text=d.candidates?.[0]?.content?.parts?.[0]?.text||'';
   }
-  const clean=text.replace(/```json|```/g,'').trim();
-  const start=clean.indexOf('['),end=clean.lastIndexOf(']');
-  if(start===-1||end===-1)throw new Error('IA não retornou dados válidos.');
-  return JSON.parse(clean.slice(start,end+1)).map(item=>({type:item.type||'income',amount:Math.abs(parseFloat(item.amount)||0),description:item.description||'Importado',category:autoCategorize(item.description,item.type||'income'),date:item.date,recurrence:'none',tags:['importado'],note:'Importado via PDF (IA)'})).filter(i=>i.amount>0&&i.date);
+  return parseImportTxs(text).map(item=>({type:item.type||'income',amount:Math.abs(parseFloat(item.amount)||0),description:item.description||'Importado',category:autoCategorize(item.description,item.type||'income'),date:item.date,recurrence:'none',tags:['importado'],note:'Importado via PDF (IA)'})).filter(i=>i.amount>0&&i.date);
 }
 async function extractPDFText(file){
   return new Promise(res=>{
@@ -2389,7 +2402,6 @@ function generatePDF(){
     monthly:document.getElementById('pdf_monthly')?.checked,
     patrimony:document.getElementById('pdf_patrimony')?.checked,
     goals:document.getElementById('pdf_goals')?.checked,
-    car:document.getElementById('pdf_car')?.checked,
     transactions:document.getElementById('pdf_transactions')?.checked,
     insights:document.getElementById('pdf_insights')?.checked,
   };
@@ -2410,9 +2422,6 @@ function generatePDF(){
   const balance=getBalance();
   const last6=getLast6();
   const maxBar=Math.max(...last6.map(x=>x.value),1);
-  const CAR_CATS=state.categories.filter(c=>c.carSub).map(c=>c.id);
-  const carTxsPDF=state.transactions.filter(t=>t.type==='expense'&&(CAR_CATS.includes(t.category)||t.carEntry)&&t.date>=from&&t.date<=to);
-  const carTotal=carTxsPDF.reduce((s,t)=>s+t.amount,0);
   const prevDate=new Date(from);prevDate.setMonth(prevDate.getMonth()-1);
   const prevKey=prevDate.toISOString().slice(0,7);
   const prevExp=state.transactions.filter(t=>isRealExpense(t)&&t.date.startsWith(prevKey)).reduce((s,t)=>s+t.amount,0);
@@ -2533,20 +2542,6 @@ function generatePDF(){
     }).join('')}
   </div>`:''}
 
-  ${sections.car&&carTxsPDF.length>0?`
-  <h2>Gastos do Carro (${pLabel})</h2>
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-      <span style="color:var(--muted)">Total no período</span>
-      <span style="font-family:var(--mono);font-weight:800;color:var(--red)">${fmt(carTotal)}</span>
-    </div>
-    ${carTxsPDF.slice(0,10).map(t=>{const c=cat(t.category);return`<div class="tx-row">
-      <span>${c.icon}</span><span style="flex:1;font-size:12px">${t.description}</span>
-      <span style="font-size:11px;color:var(--muted)">${fmtDate(t.date)}</span>
-      <span style="font-family:var(--mono);font-weight:700;color:var(--red)">${fmt(t.amount)}</span>
-    </div>`}).join('')}
-  </div>`:''}
-
   ${sections.transactions?`
   <h2>Últimos Lançamentos</h2>
   <div class="card">
@@ -2641,7 +2636,7 @@ function deleteCat(id){
 // ══════════════════════════════════════════════════
 function renderTab(){
   const c=document.getElementById('content');c.innerHTML='';
-  const fn={dashboard:renderDashboard,banks:renderBanks,credit:renderBanks,pj:renderPJ,mei:renderPJ,transactions:renderTransactions,reports:renderReports,goals:renderGoals,projections:renderProjections,investments:renderInvestments,credit:renderCredit,car:renderCar,mei:renderMei,settings:renderSettings,faq:renderFAQ,debts:renderDebts};
+  const fn={dashboard:renderDashboard,banks:renderBanks,credit:renderBanks,pj:renderPJ,mei:renderPJ,transactions:renderTransactions,reports:renderReports,goals:renderGoals,projections:renderProjections,investments:renderInvestments,credit:renderCredit,mei:renderMei,settings:renderSettings,faq:renderFAQ,debts:renderDebts};
   if(fn[state.tab])fn[state.tab]();
   updateSyncUI();
 }
@@ -2712,9 +2707,6 @@ function renderDashboard(){
   // notifications
   const alertCards=state.cards.filter(c=>{const diff=c.dueDay-now.getDate();return diff>=0&&diff<=5});
   const alertGoals=state.goals.filter(g=>g.deadline&&Math.ceil((new Date(g.deadline)-now)/86400000)<=7&&(g.saved||0)<g.target);
-  const carStats=getCarStats();
-  const revWarn=state.car.nextRevisionKm>0&&carStats.kmToNextRev<2000&&carStats.kmToNextRev>=0;
-  const insuranceDays=state.car.insuranceExpiry?Math.ceil((new Date(state.car.insuranceExpiry)-now)/86400000):null;
 
   // financial health
   const healthScore=realBalance<=0?'red':expense>income?'red':expense>income*.85?'yellow':faturaAberta>income*.3?'yellow':'green';
@@ -2772,8 +2764,6 @@ function renderDashboard(){
   <!-- NOTIFICATIONS -->
   ${alertCards.map(c=>`<div class="alert alert-warning">⚠️ Fatura do <strong>${c.name}</strong> vence em ${c.dueDay-now.getDate()} dia${c.dueDay-now.getDate()!==1?'s':''}! <button onclick="navigate('credit')" style="background:none;border:none;color:var(--yellow);font-size:12px;cursor:pointer;text-decoration:underline">Ver fatura</button></div>`).join('')}
   ${alertGoals.map(g=>`<div class="alert alert-warning">🎯 Meta <strong>${g.name}</strong> vence em ${Math.ceil((new Date(g.deadline)-now)/86400000)} dias!</div>`).join('')}
-  ${revWarn?`<div class="alert alert-warning">🔧 Revisão do carro próxima! <strong>${carStats.kmToNextRev.toLocaleString()} km</strong> restantes. <button onclick="navigate('car')" style="background:none;border:none;color:var(--yellow);font-size:12px;cursor:pointer;text-decoration:underline">Ver carro</button></div>`:''}
-  ${insuranceDays!==null&&insuranceDays<=30?`<div class="alert alert-danger">🛡️ Seguro do carro vence em <strong>${insuranceDays} dias</strong>!</div>`:''}
   ${showInvReminder?`<div class="alert alert-info" style="display:flex;justify-content:space-between;align-items:center">
     <span>📊 ${lastInvUpdate===0?'Você nunca atualizou seus investimentos.':'Seus investimentos não são atualizados há '+daysSinceUpdate+' dias.'} Que tal atualizar agora?</span>
     <div style="display:flex;gap:6px;flex-shrink:0">
@@ -4106,200 +4096,6 @@ function confirmAporte(){
   syncNow();
 }
 
-// ── CAR ──────────────────────────────────────────────
-function saveCar(){
-  state.car={
-    name:document.getElementById('carName').value.trim(),
-    model:document.getElementById('carModel').value.trim(),
-    plate:document.getElementById('carPlate').value.trim().toUpperCase(),
-    year:document.getElementById('carYear').value,
-    km:parseFloat(document.getElementById('carKm').value)||0,
-    fuelType:document.getElementById('carFuelType').value,
-    tankSize:parseFloat(document.getElementById('carTankSize').value)||50,
-    nextRevisionKm:parseFloat(document.getElementById('carNextRevKm').value)||0,
-    lastRevisionKm:parseFloat(document.getElementById('carLastRevKm').value)||0,
-    insuranceExpiry:document.getElementById('carInsurance').value,
-  };
-  saveState();addLog('edit','Dados do carro atualizados');renderTab();
-}
-
-function getCarStats(){
-  const carTxs=state.transactions.filter(t=>t.type==='expense'&&['manutencao','transporte','governo'].includes(t.category)||t.carEntry);
-  const fuelTxs=state.transactions.filter(t=>t.carFuel);
-  const totalYear=carTxs.filter(t=>t.date?.startsWith(new Date().getFullYear().toString())).reduce((s,t)=>s+t.amount,0);
-  const totalKm=fuelTxs.reduce((s,t)=>s+(t.kmAfter-t.kmBefore||0),0);
-  const totalFuelCost=fuelTxs.reduce((s,t)=>s+t.amount,0);
-  const avgKmL=fuelTxs.length>0?fuelTxs.filter(t=>t.kmPerL).reduce((s,t)=>s+t.kmPerL,0)/fuelTxs.filter(t=>t.kmPerL).length:0;
-  const kmSinceLastRev=state.car.km-(state.car.lastRevisionKm||0);
-  const kmToNextRev=Math.max(0,(state.car.nextRevisionKm||0)-state.car.km);
-  return{totalYear,totalKm,totalFuelCost,avgKmL,kmSinceLastRev,kmToNextRev,carTxs};
-}
-
-function renderCar(){
-  const car=state.car;
-  const stats=getCarStats();
-  const hasProfile=!!(car.model||car.plate);
-  const revPct=car.nextRevisionKm>car.lastRevisionKm?Math.min(100,((car.km-car.lastRevisionKm)/(car.nextRevisionKm-car.lastRevisionKm))*100):0;
-  const revWarn=stats.kmToNextRev>0&&stats.kmToNextRev<2000;
-  const insuranceDays=car.insuranceExpiry?Math.ceil((new Date(car.insuranceExpiry)-new Date())/86400000):null;
-
-  // car-specific transactions
-  const CAR_CATS=state.categories.filter(c=>c.carSub).map(c=>c.id);
-  // period filter for car
-  const now2=new Date();
-  let carFrom;
-  if(state.carPeriod==='month')carFrom=new Date(now2.getFullYear(),now2.getMonth(),1).toISOString().slice(0,10);
-  else if(state.carPeriod==='quarter')carFrom=new Date(now2.getFullYear(),now2.getMonth()-3,1).toISOString().slice(0,10);
-  else if(state.carPeriod==='semester')carFrom=new Date(now2.getFullYear(),now2.getMonth()-6,1).toISOString().slice(0,10);
-  else if(state.carPeriod==='year')carFrom=`${now2.getFullYear()}-01-01`;
-  else carFrom='2000-01-01';
-  const carTxs=state.transactions.filter(t=>t.type==='expense'&&(CAR_CATS.includes(t.category)||t.carEntry)&&t.date>=carFrom).sort((a,b)=>b.date.localeCompare(a.date));
-  const allCarTxs=state.transactions.filter(t=>t.type==='expense'&&(CAR_CATS.includes(t.category)||t.carEntry));
-  const catTotals={};
-  carTxs.forEach(t=>{catTotals[t.category]=(catTotals[t.category]||0)+t.amount});
-  const totalPeriod=carTxs.reduce((s,t)=>s+t.amount,0);
-  const maxCat=Math.max(...Object.values(catTotals),1);
-  const periodLabels={month:'Este mês',quarter:'Trimestre',semester:'Semestre',year:'Este ano',all:'Tudo'};
-
-  document.getElementById('content').innerHTML=`
-  <div class="page-header">
-    <div><div class="page-title">Meu Carro 🚗</div>${hasProfile?`<div class="page-sub">${car.model} ${car.year} · ${car.plate}</div>`:''}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
-        ${[['month','Mês'],['quarter','Trim.'],['semester','Sem.'],['year','Ano'],['all','Tudo']].map(([v,l])=>`
-        <button onclick="state.carPeriod='${v}';S('ff_car_period','${v}');renderTab()" style="padding:6px 10px;border:none;cursor:pointer;font-size:11px;font-weight:600;font-family:var(--font);background:${state.carPeriod===v?'var(--accent)':'transparent'};color:${state.carPeriod===v?'#e8f5e0':'var(--muted)'}">${l}</button>`).join('')}
-      </div>
-      <button class="btn btn-primary" onclick="document.getElementById('carFormCard').style.display=document.getElementById('carFormCard').style.display==='none'?'block':'none'">✏️ Editar Perfil</button>
-    </div>
-  </div>
-
-  ${revWarn?`<div class="alert alert-warning">⚠️ Revisão próxima! Faltam apenas <strong>${stats.kmToNextRev.toLocaleString()} km</strong> para a próxima revisão.</div>`:''}
-  ${insuranceDays!==null&&insuranceDays<=30?`<div class="alert alert-danger">🛡️ Seguro vence em <strong>${insuranceDays} dias</strong>!</div>`:''}
-
-  <!-- PERFIL FORM -->
-  <div id="carFormCard" class="card" style="display:${hasProfile?'none':'block'};margin-bottom:20px">
-    <div class="card-title">Perfil do Veículo</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:14px">
-      <div class="form-group"><label class="form-label">Apelido</label><input id="carName" value="${car.name||''}" placeholder="Ex: Bimbim"/></div>
-      <div class="form-group"><label class="form-label">Modelo</label><input id="carModel" value="${car.model||''}" placeholder="Ex: HB20 Platinum"/></div>
-      <div class="form-group"><label class="form-label">Placa</label><input id="carPlate" value="${car.plate||''}" placeholder="ABC1D23" style="text-transform:uppercase"/></div>
-      <div class="form-group"><label class="form-label">Ano</label><input id="carYear" value="${car.year||''}" type="number" placeholder="2022"/></div>
-      <div class="form-group"><label class="form-label">KM Atual</label><input id="carKm" value="${car.km||''}" type="number" placeholder="45000"/></div>
-      <div class="form-group"><label class="form-label">Combustível</label>
-        <select id="carFuelType">
-          <option value="flex"${car.fuelType==='flex'?' selected':''}>Flex (Gasolina/Etanol)</option>
-          <option value="gasolina"${car.fuelType==='gasolina'?' selected':''}>Gasolina</option>
-          <option value="etanol"${car.fuelType==='etanol'?' selected':''}>Etanol</option>
-          <option value="diesel"${car.fuelType==='diesel'?' selected':''}>Diesel</option>
-          <option value="eletrico"${car.fuelType==='eletrico'?' selected':''}>Elétrico</option>
-        </select>
-      </div>
-      <div class="form-group"><label class="form-label">Tanque (litros)</label><input id="carTankSize" value="${car.tankSize||50}" type="number"/></div>
-      <div class="form-group"><label class="form-label">KM última revisão</label><input id="carLastRevKm" value="${car.lastRevisionKm||''}" type="number" placeholder="35000"/></div>
-      <div class="form-group"><label class="form-label">KM próxima revisão</label><input id="carNextRevKm" value="${car.nextRevisionKm||''}" type="number" placeholder="45000"/></div>
-      <div class="form-group"><label class="form-label">Validade do seguro</label><input id="carInsurance" value="${car.insuranceExpiry||''}" type="date"/></div>
-    </div>
-    <button class="btn btn-primary" onclick="saveCar()">💾 Salvar</button>
-  </div>
-
-  ${hasProfile?`
-  <!-- STATS -->
-  <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-    <div class="stat-card s-expense"><div class="stat-icon">💸</div><div class="stat-value" style="color:var(--red)">${fmt(totalPeriod)}</div><div class="stat-label">Gasto (${periodLabels[state.carPeriod]||''})</div></div>
-    <div class="stat-card s-balance"><div class="stat-icon">🔧</div>
-      <div style="margin-bottom:4px">
-        <div style="font-size:11px;color:var(--muted)">KM atual: <strong>${car.km.toLocaleString()}</strong></div>
-        <div style="font-size:11px;color:${revWarn?'var(--red)':'var(--muted)'}">Próx. revisão: <strong>${car.nextRevisionKm?car.nextRevisionKm.toLocaleString()+'km':'—'}</strong></div>
-      </div>
-      ${car.nextRevisionKm?`<div class="progress-track" style="margin-top:6px"><div class="progress-fill" style="width:${revPct}%;background:${revWarn?'var(--red)':'var(--accent)'}"></div></div>
-      <div style="font-size:10px;color:var(--muted);margin-top:3px">${stats.kmToNextRev>0?`${stats.kmToNextRev.toLocaleString()} km restantes`:'Revisão necessária!'}</div>`:''}
-      <div class="stat-label" style="margin-top:4px">Revisão</div>
-    </div>
-    <div class="stat-card s-income"><div class="stat-icon">⛽</div><div class="stat-value" style="color:var(--accent);font-size:16px">${stats.avgKmL>0?stats.avgKmL.toFixed(1)+' km/l':'—'}</div><div class="stat-label">Média de consumo</div></div>
-    <div class="stat-card s-month"><div class="stat-icon">🛡️</div>
-      <div style="font-size:13px;font-weight:700">${car.insuranceExpiry?fmtDate(car.insuranceExpiry):'—'}</div>
-      ${insuranceDays!==null?`<div style="font-size:11px;color:${insuranceDays<30?'var(--red)':'var(--muted)'}">${insuranceDays>0?insuranceDays+' dias':' Vencido'}</div>`:''}
-      <div class="stat-label" style="margin-top:4px">Seguro</div>
-    </div>
-  </div>
-
-  <div class="grid-2" style="margin-bottom:16px">
-    <div class="card">
-      <div class="card-title">Gastos por Categoria</div>
-      ${Object.keys(catTotals).length===0?'<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nenhum gasto de carro registrado</div>':`
-      ${Object.entries(catTotals).map(([id,val])=>{const c=cat(id);return`
-      <div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-          <span>${c.icon} ${c.label}</span><strong>${fmt(val)}</strong>
-        </div>
-        <div class="progress-track"><div class="progress-fill" style="width:${(val/maxCat)*100}%;background:${c.color}"></div></div>
-      </div>`}).join('')}`}
-    </div>
-    <div class="card">
-      <div class="card-title">Novo Gasto de Carro</div>
-      <div class="form-group"><label class="form-label">Categoria</label>
-        <select id="carTxCat">
-          <option value="car_gasolina">⛽ Gasolina / Etanol</option>
-          <option value="car_manutencao">🔧 Manutenção</option>
-          <option value="car_ipva">🏛️ IPVA / DETRAN</option>
-          <option value="car_seguro">🛡️ Seguro</option>
-          <option value="car_lava">🧹 Lava Rápido</option>
-          <option value="car_pedagio">🅿️ Estacionamento / Pedágio</option>
-          <option value="car_outros">🚗 Outros (Carro)</option>
-        </select>
-      </div>
-      <div class="form-group"><label class="form-label">Descrição</label><input id="carTxDesc" placeholder="Ex: Abastecimento Shell"/></div>
-      <div class="form-group"><label class="form-label">Valor (R$)</label><input id="carTxAmt" type="number" placeholder="0,00"/></div>
-      <div style="display:flex;gap:8px">
-        <div class="form-group" style="flex:1"><label class="form-label">KM Antes</label><input id="carKmBefore" type="number" placeholder="${car.km}"/></div>
-        <div class="form-group" style="flex:1"><label class="form-label">KM Depois</label><input id="carKmAfter" type="number" placeholder=""/></div>
-      </div>
-      <div class="form-group"><label class="form-label">Data</label><input id="carTxDate" type="date" value="${todayStr()}"/></div>
-      <button class="btn btn-primary" style="width:100%" onclick="addCarTx()">+ Registrar</button>
-    </div>
-  </div>`:''}
-
-  <!-- HISTÓRICO -->
-  <div class="card">
-    <div class="card-title">Histórico de Gastos do Carro</div>
-    ${carTxs.length===0?`<div class="empty-state"><div class="empty-icon">🚗</div><div class="empty-title">Nenhum gasto registrado ainda</div>${!hasProfile?'<p style="color:var(--muted);font-size:13px">Configure o perfil do veículo primeiro</p>':''}</div>`:`
-    <div style="overflow:hidden;border-radius:8px;border:1px solid var(--border)">
-      ${carTxs.slice(0,20).map(t=>{const c=cat(t.category);return`
-      <div class="tx-item">
-        <div class="tx-cat-icon" style="background:${c.color}22">${c.icon}</div>
-        <div class="tx-info"><div class="tx-desc">${t.description}</div>
-        <div class="tx-meta"><span>${fmtDate(t.date)}</span><span>${c.label}</span>
-          ${t.kmAfter?`<span>⊕ ${t.kmAfter.toLocaleString()} km</span>`:''}
-          ${t.kmPerL?`<span style="color:var(--accent)">⛽ ${t.kmPerL.toFixed(1)} km/l</span>`:''}
-        </div></div>
-        <div class="tx-amount" style="color:var(--red)">-${fmt(t.amount)}</div>
-        <div class="tx-actions">
-          <button class="tx-act-btn del" onclick="deleteTx('${t.id}')">🗑️</button>
-        </div>
-      </div>`}).join('')}
-    </div>`}
-  </div>`;
-}
-
-function addCarTx(){
-  const cat=document.getElementById('carTxCat').value;
-  const desc=document.getElementById('carTxDesc').value.trim();
-  const amt=parseFloat(document.getElementById('carTxAmt').value);
-  const kmBefore=parseFloat(document.getElementById('carKmBefore').value)||0;
-  const kmAfter=parseFloat(document.getElementById('carKmAfter').value)||0;
-  const date=document.getElementById('carTxDate').value;
-  if(!desc||!amt)return alert('Preencha descrição e valor.');
-  let kmPerL=null;
-  if(cat==='transporte'&&kmBefore>0&&kmAfter>kmBefore&&amt>0){
-    const litros=amt/(state.car.fuelType==='etanol'?3.5:5.5); // estimate if no liters
-    kmPerL=(kmAfter-kmBefore)/litros;
-  }
-  const tx={id:uid(),type:'expense',amount:amt,description:desc,category:cat,date,recurrence:'none',tags:[],note:'',carEntry:true,kmBefore:kmBefore||null,kmAfter:kmAfter||null,kmPerL,createdAt:new Date().toISOString()};
-  state.transactions=[tx,...state.transactions];
-  if(kmAfter>state.car.km){state.car.km=kmAfter;S('ff_car',state.car);}
-  saveState();renderTab();
-  addLog('create',`Gasto de carro: ${desc} — ${fmt(amt)}`);
-}
 // ── MEI ────────────────────────────────────────────
 function renderMei(){
   const now=new Date();
@@ -5598,6 +5394,55 @@ function detectFaturaMonth(text, banco){
   return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 }
 
+// Parser tolerante p/ a resposta JSON do Gemini.
+// Faturas grandes costumam vir com JSON levemente quebrado (vírgula faltando
+// entre objetos, vírgula sobrando, ou resposta truncada). Repara o que dá e,
+// em último caso, extrai transação por transação ignorando as inválidas.
+function parseFaturaJSON(rawText){
+  let txt = String(rawText||'').replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+  const start = txt.indexOf('{'), end = txt.lastIndexOf('}');
+  if(start===-1) throw new Error('A IA não retornou JSON. Resposta: '+txt.slice(0,200));
+  let body = end>start ? txt.slice(start,end+1) : txt.slice(start);
+
+  // 1) Tentativa direta
+  try{ return JSON.parse(body); }catch(_){}
+
+  // 2) Reparos comuns
+  let fixed = body
+    .replace(/,\s*([}\]])/g,'$1')   // vírgula sobrando antes de } ou ]
+    .replace(/}\s*{/g,'},{')         // objetos colados sem vírgula
+    .replace(/]\s*\[/g,'],[');       // arrays colados sem vírgula
+  try{ return JSON.parse(fixed); }catch(_){}
+
+  // 3) Resposta truncada: fechar array/objeto no último objeto completo
+  try{
+    const arrStart = fixed.indexOf('[', fixed.indexOf('"transactions"'));
+    if(arrStart!==-1){
+      const lastObjEnd = fixed.lastIndexOf('}');
+      if(lastObjEnd>arrStart){
+        const repaired = fixed.slice(0,lastObjEnd+1).replace(/,\s*$/,'') + ']}';
+        return JSON.parse(repaired);
+      }
+    }
+  }catch(_){}
+
+  // 4) Resgate item-a-item: extrai cada {...} de transação por balanceamento de chaves
+  const txs=[];
+  const arrIdx = fixed.indexOf('[', Math.max(0,fixed.indexOf('"transactions"')));
+  const scanFrom = arrIdx!==-1 ? arrIdx : 0;
+  let depth=0,objStart=-1,inStr=false,esc=false;
+  for(let i=scanFrom;i<fixed.length;i++){
+    const ch=fixed[i];
+    if(inStr){ if(esc){esc=false;} else if(ch==='\\'){esc=true;} else if(ch==='"'){inStr=false;} continue; }
+    if(ch==='"'){inStr=true;continue;}
+    if(ch==='{'){ if(depth===0)objStart=i; depth++; }
+    else if(ch==='}'){ depth--; if(depth===0&&objStart!==-1){ try{ txs.push(JSON.parse(fixed.slice(objStart,i+1))); }catch(_){} objStart=-1; } }
+  }
+  if(txs.length) return {transactions:txs};
+
+  throw new Error('Não foi possível ler a resposta da IA (JSON inválido). Tente importar novamente.');
+}
+
 async function parseFaturaComGemini(base64OrText, banco, faturaMonth, gemKey){
   const expCats = state.categories
     .filter(c => c.type === 'expense')
@@ -5631,11 +5476,11 @@ RESPONDA APENAS com JSON válido, sem markdown:
       {inline_data:{mime_type:'application/pdf', data:base64OrText}},
       {text:`Extraia todas as transações desta fatura do ${banco === 'nubank' ? 'Nubank' : 'Banco Inter'}. Retorne JSON.`}
     ]}],
-    generationConfig:{temperature:0.1,maxOutputTokens:8192}
+    generationConfig:{temperature:0.1,maxOutputTokens:65536}
   } : {
     system_instruction:{parts:[{text:systemPrompt}]},
     contents:[{parts:[{text:`Fatura do ${banco === 'nubank' ? 'Nubank' : 'Banco Inter'}:\n\n${base64OrText.slice(0,30000)}`}]}],
-    generationConfig:{temperature:0.1,maxOutputTokens:8192}
+    generationConfig:{temperature:0.1,maxOutputTokens:65536}
   };
 
   const res = await fetch(
@@ -5649,9 +5494,7 @@ RESPONDA APENAS com JSON válido, sem markdown:
   const data = await res.json();
   let rawText = (data?.candidates?.[0]?.content?.parts?.[0]?.text||'').trim();
   rawText = rawText.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'');
-  const start = rawText.indexOf('{'), end = rawText.lastIndexOf('}');
-  if(start===-1||end===-1) throw new Error('Gemini não retornou JSON válido. Resposta: '+rawText.slice(0,200));
-  const parsed = JSON.parse(rawText.slice(start,end+1));
+  const parsed = parseFaturaJSON(rawText);
   if(!parsed.transactions||!Array.isArray(parsed.transactions)) throw new Error('Formato inesperado na resposta do Gemini.');
   return parsed.transactions
     .filter(t => t.amount>0 && t.description && t.date)
@@ -7164,7 +7007,6 @@ async function restoreFromSheets(silent=false){
     if(data.budget&&typeof data.budget==='object')state.budget={survival:data.budget.survival||0,leisure:data.budget.leisure||0};
     if(Array.isArray(data.accounts))state.accounts=data.accounts;
     if(Array.isArray(data.cards))state.cards=data.cards;
-    if(data.car&&typeof data.car==='object'&&Object.keys(data.car).length)state.car=data.car;
     if(data.mei&&typeof data.mei==='object'){state.mei=data.mei;sanitizeMei();}
     // always restore API keys if available in sheets
     if(data.claudeKey)state.claudeKey=data.claudeKey;
